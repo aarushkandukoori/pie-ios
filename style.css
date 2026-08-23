@@ -1,0 +1,289 @@
+/* Pie on iOS — project site.
+   Design language borrowed from linzhong.org: Yale blue #00356b bar,
+   silver/white nav serif, #dddddd bands, black-on-white serif body,
+   sharp edges, hr rules, centered fixed column. Modernized: sticky nav,
+   smooth scroll, scroll-driven animation, responsive. */
+
+* { box-sizing: border-box; border-radius: 0 !important; }
+
+:root {
+  --yale: #00356b;
+  --band: #dddddd;
+  --rule: #999;
+  --silver: silver;
+  --ink: #000;
+  --paper: #fff;
+  --accent: #00356b;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+  line-height: 1.5;
+}
+
+/* ── Nav: the #00356b strip ─────────────────────────────────────── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--yale);
+  border-bottom: 0.5px solid #fff;
+}
+nav .inner {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 2.2em;
+  padding: 7px 10px;
+}
+nav a {
+  color: #fff;
+  font-weight: bold;
+  font-size: 12pt;
+  text-decoration: none;
+  white-space: nowrap;
+}
+nav a:hover { text-decoration: underline; }
+nav a.current { color: var(--silver); }
+
+/* ── Header band, mirroring the profile strip ───────────────────── */
+header { background: var(--yale); }
+header .inner {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 34px 16px 30px;
+  text-align: center;
+}
+header h1 {
+  font: bold 26pt "Times New Roman", Times, serif;
+  color: #fff;
+  margin: 0 0 6px;
+}
+header .sub {
+  color: var(--silver);
+  font-size: 13pt;
+  margin: 0;
+}
+
+.band {
+  background: var(--band);
+  border-bottom: 1px solid var(--rule);
+}
+.band .inner {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  font-size: 11pt;
+}
+.band .cell { text-align: left; }
+.band b { font-size: 11pt; }
+
+/* ── Body column ────────────────────────────────────────────────── */
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 16px 60px;
+}
+section { padding-top: 8px; }
+section + section { margin-top: 8px; }
+
+h2 {
+  font: bold 16pt "Times New Roman", Times, serif;
+  margin: 22pt 0 9pt;
+}
+h3 { font: bold 12.5pt "Times New Roman", Times, serif; margin: 1.2em 0 4pt; }
+
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 26px 0 4px;
+}
+
+a { color: var(--accent); }
+
+p { margin: 10px 0; }
+
+/* Keep the serif-everywhere brief: code stays Times, distinguished by
+   italics rather than a monospace face. */
+code { font-family: "Times New Roman", Times, serif; font-style: italic; }
+
+/* Anchor jumps must clear the sticky nav. */
+section { scroll-margin-top: 56px; }
+
+table.data {
+  border-collapse: collapse;
+  margin: 12px 0;
+  width: 100%;
+  font-size: 11.5pt;
+}
+table.data th, table.data td {
+  border: 1px solid var(--rule);
+  padding: 5px 10px;
+  text-align: left;
+}
+table.data th { background: var(--band); font-weight: bold; }
+table.data td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.caveat {
+  background: #f3f3f3;
+  border: 1px solid var(--rule);
+  padding: 10px 14px;
+  font-size: 11pt;
+  margin: 14px 0;
+}
+
+/* ── Scroll-driven app animation ────────────────────────────────── */
+#scrub-wrap { height: 420vh; position: relative; }
+#scrub-sticky {
+  position: sticky;
+  top: 48px;
+  height: calc(100vh - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+}
+#scrub-canvas {
+  height: min(78vh, 760px);
+  aspect-ratio: 453 / 984;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+#scrub-captions { width: 300px; }
+.scrub-step {
+  opacity: 0.18;
+  transition: opacity 0.25s;
+  margin: 0 0 26px;
+}
+.scrub-step.active { opacity: 1; }
+.scrub-step b { display: block; font-size: 13pt; }
+.scrub-step span { font-size: 11.5pt; }
+.scrub-step .n {
+  display: inline-block;
+  background: var(--yale);
+  color: #fff;
+  font-weight: bold;
+  width: 22px; height: 22px;
+  text-align: center; line-height: 22px;
+  margin-right: 8px;
+}
+
+/* ── Demo ───────────────────────────────────────────────────────── */
+#demo-box {
+  border: 1px solid var(--rule);
+  margin: 14px 0;
+}
+#demo-head {
+  background: var(--band);
+  border-bottom: 1px solid var(--rule);
+  padding: 8px 12px;
+  font-size: 11pt;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#demo-transcript {
+  height: 340px;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fff;
+}
+.bubble {
+  max-width: 75%;
+  padding: 7px 11px;
+  margin: 6px 0;
+  border: 1px solid var(--rule);
+  font-size: 11.5pt;
+  white-space: pre-wrap;
+}
+.bubble.user { margin-left: auto; background: var(--yale); color: #fff; border-color: var(--yale); }
+.bubble.bot { margin-right: auto; background: #f3f3f3; }
+.chip {
+  font-size: 9.5pt;
+  color: #555;
+  margin: -2px 0 8px 2px;
+}
+#demo-controls {
+  border-top: 1px solid var(--rule);
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+#demo-controls input[type=text] {
+  flex: 1;
+  min-width: 180px;
+  font: 11.5pt "Times New Roman", Times, serif;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+}
+button {
+  font: bold 11pt "Times New Roman", Times, serif;
+  background: var(--yale);
+  color: #fff;
+  border: 1px solid var(--yale);
+  padding: 7px 14px;
+  cursor: pointer;
+}
+button:disabled { background: #777; border-color: #777; cursor: default; }
+button.ghost { background: #fff; color: var(--yale); }
+#demo-progress {
+  height: 10px;
+  background: #eee;
+  border: 1px solid var(--rule);
+  margin: 8px 12px 12px;
+  display: none;
+}
+#demo-progress div { height: 100%; width: 0%; background: var(--yale); }
+#demo-status { font-size: 10.5pt; color: #444; padding: 0 12px 10px; }
+
+/* ── Architecture figure ────────────────────────────────────────── */
+figure { margin: 14px 0; text-align: center; }
+figure svg { max-width: 100%; height: auto; }
+figcaption { font-size: 10.5pt; color: #444; margin-top: 6px; }
+
+footer {
+  border-top: 1px solid var(--rule);
+  margin-top: 40px;
+  padding: 16px 0 4px;
+  font-size: 10.5pt;
+  color: #444;
+}
+
+@media (max-width: 480px) {
+  table.data { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+@media (max-width: 760px) {
+  section { scroll-margin-top: 76px; }
+  #scrub-sticky {
+    flex-direction: column;
+    gap: 12px;
+    justify-content: flex-start;
+    padding-top: 10px;
+    top: 64px;
+    height: calc(100vh - 64px);
+  }
+  #scrub-canvas { height: 52vh; }
+  #scrub-captions { width: 100%; max-width: 460px; padding: 0 8px; }
+  /* One caption at a time on small screens — the full stack overflows
+     the sticky viewport. */
+  .scrub-step { display: none; margin-bottom: 0; }
+  .scrub-step.active { display: block; }
+  nav .inner { gap: 0 1.1em; }
+}

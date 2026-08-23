@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pie on iOS — programmable LLM serving, on the phone</title>
+<meta name="description" content="Pie Voice: hold a spoken conversation with a language model served by the Pie engine, running entirely on-device. Project page, live demo, benchmarks.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a href="#overview" class="current">Overview</a>
+    <a href="#app">The App</a>
+    <a href="#demo">Try It</a>
+    <a href="#benchmarks">Benchmarks</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#links">Links</a>
+  </div>
+</nav>
+
+<header>
+  <div class="inner">
+    <h1>Pie on iOS</h1>
+    <p class="sub">Programmable LLM serving — running entirely on the phone</p>
+  </div>
+</header>
+
+<div class="band">
+  <div class="inner">
+    <div class="cell">
+      <b>Pie Voice</b> — a voice assistant served by the
+      <a href="https://github.com/pie-project/pie">Pie</a> engine, on-device
+    </div>
+    <div class="cell">
+      Qwen3-0.6B Q4_K_M &middot; ggml (CPU) &middot; inferlets on wasmtime&nbsp;Pulley
+    </div>
+    <div class="cell">
+      <a href="https://github.com/aarushkandukoori/pie/tree/ios-voice">branch: ios-voice</a><br>
+      <a href="https://github.com/pie-project/pie/discussions/526">RFC discussion #526</a>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<section id="overview">
+  <h2>Overview</h2>
+  <p>
+    <a href="https://github.com/pie-project/pie">Pie</a> (SOSP&nbsp;'25) is a
+    programmable serving system: instead of a fixed generation loop, applications
+    ship small WebAssembly programs — <i>inferlets</i> — that program the serving
+    loop itself: branch and rewind the KV cache, persist it under a name, apply
+    custom sampling. This project ports Pie to the place where programmable
+    serving may matter most: <b>a phone in someone's pocket</b>, where the data is
+    personal and the network is optional.
+  </p>
+  <p>
+    The result so far is <b>Pie Voice</b>, an iOS app you hold a spoken
+    conversation with. Speech is transcribed by the OS recognizer (on-device on real hardware —
+    the app's header badge reports the actual mode), answered by
+    Qwen3-0.6B running through the Pie engine <i>embedded inside the app</i>, and
+    spoken back. iOS forbids JIT compilation, so inferlets execute under
+    wasmtime's <a href="https://docs.wasmtime.dev/examples-pulley.html">Pulley</a>
+    interpreter — permissible because Pulley generates no code at runtime (no
+    writable-executable memory). The interpretation overhead is acceptable
+    because inferlets are control-plane code; the FLOPs live in the native
+    driver.
+  </p>
+  <p>
+    What makes it a <i>Pie</i> app rather than a chat wrapper: the conversation's
+    KV state lives inside the engine under a named snapshot, carried across turns
+    by the <code>voice-chat</code> inferlet. A follow-up question prefills only
+    the new utterance — not the whole transcript. The numbers are in the
+    <a href="#benchmarks">benchmarks</a>; you can watch the cost <i>not</i> being
+    paid in the <a href="#app">app walkthrough</a> below, and feel the baseline
+    cost it removes in the <a href="#demo">browser demo</a>.
+  </p>
+</section>
+
+<hr>
+
+<section id="app">
+  <h2>The App</h2>
+  <p style="font-size:10.5pt;color:#444">
+    Scroll through a real conversation — the first two turns of the
+    five-turn benchmark session below, captured live in the iOS Simulator.
+  </p>
+</section>
+
+<div id="scrub-wrap">
+  <div id="scrub-sticky">
+    <canvas id="scrub-canvas" width="453" height="984" role="img" aria-label="Screen recording of a two-turn spoken conversation in the Pie Voice iOS app">Screen recording of the Pie Voice app answering two spoken questions.</canvas>
+    <div id="scrub-captions">
+      <div class="scrub-step" data-from="0.00" data-to="0.165">
+        <b><span class="n">1</span>The model lives in the app</b>
+        <span>The engine and the 397&nbsp;MB model are inside the app bundle;
+        speech recognition uses the OS recognizer, and the header badge reports
+        where it actually runs. Relaunch to ready: about 12 seconds.</span>
+      </div>
+      <div class="scrub-step" data-from="0.165" data-to="0.28">
+        <b><span class="n">2</span>Ask out loud</b>
+        <span>The utterance is transcribed and handed to the
+        <code>voice-chat</code> inferlet, which builds the prompt inside the
+        engine.</span>
+      </div>
+      <div class="scrub-step" data-from="0.28" data-to="0.39">
+        <b><span class="n">3</span>Tokens stream live</b>
+        <span>Qwen3-0.6B generates through the ggml driver; text streams into
+        the transcript as it is produced, and sentences are spoken as they
+        complete — speech overlaps generation.</span>
+      </div>
+      <div class="scrub-step" data-from="0.39" data-to="0.58">
+        <b><span class="n">4</span>Every turn is audited</b>
+        <span>The stats chip under each reply reports prefill tokens, tokens
+        generated, and decode rate for that turn.</span>
+      </div>
+      <div class="scrub-step" data-from="0.58" data-to="1.01">
+        <b><span class="n">5</span>Follow-ups reuse the conversation</b>
+        <span>The KV cache survives between turns as a named engine snapshot.
+        The follow-up prefills only the new words — the chip shows the
+        conversation tokens <i>reused</i> instead of recomputed.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<section id="demo">
+  <h2>Try It — In Your Browser</h2>
+  <p>
+    This is a <b>browser recreation</b> of Pie Voice: the same base model
+    (Qwen3-0.6B, in WebLLM's q4f16 quantization rather than the app's Q4_K_M
+    GGUF), the same conversation design, running entirely in your browser
+    via <a href="https://github.com/mlc-ai/web-llm">WebLLM</a> and WebGPU.
+    Nothing you <i>type</i> leaves this page — the model runs in this tab, and the
+    only network traffic is the one-time model download. Voice input uses the
+    browser's Web Speech API, which some browsers (Chrome, Edge) process on the
+    browser vendor's servers — type instead if you want strictly local input.
+  </p>
+  <p class="caveat">
+    <b>What this demo deliberately shows:</b> the browser engine has no
+    per-conversation KV snapshots, so every follow-up re-sends and re-prefills
+    the whole history — watch the <i>prefill</i> number in the stats chip grow
+    each turn. That growing number is exactly the cost the Pie engine removes in
+    the native app, where follow-up prefill stays flat.
+  </p>
+  <div id="demo-box">
+    <div id="demo-head">
+      <span><b>Pie Voice</b> — browser recreation</span>
+      <span id="demo-engine">Qwen3-0.6B &middot; WebLLM &middot; WebGPU</span>
+    </div>
+    <div id="demo-transcript"></div>
+    <div id="demo-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div></div></div>
+    <div id="demo-status" aria-live="polite">Model is downloaded once (roughly 400 MB) and cached by your browser.</div>
+    <div id="demo-controls">
+      <button id="demo-load">Load model (~400 MB)</button>
+      <button id="demo-mic" class="ghost" disabled>&#127908; Speak</button>
+      <input type="text" id="demo-text" placeholder="or type a message…" aria-label="Type a message to the model" disabled>
+      <button id="demo-send" disabled>Send</button>
+      <button id="demo-reset" class="ghost" disabled>Start over</button>
+    </div>
+  </div>
+  <p style="font-size:10.5pt;color:#444">
+    Requires WebGPU (recent Chrome, Edge, or Safari). Voice input uses the Web
+    Speech API where available; typing always works. Replies are spoken with
+    your browser's speech synthesis — same interaction contract as the app.
+  </p>
+</section>
+
+<hr>
+
+<section id="benchmarks">
+  <h2>Benchmarks</h2>
+  <p>
+    Measured on the app itself — the numbers below are read from the app's
+    per-turn stats chips during a five-turn spoken conversation, recorded in one
+    take on 2026-08-23. Utterances came from the app's bundled sample
+    recordings (synthesised speech played into the same recognition path as the
+    microphone), so the run is repeatable. Environment: iOS Simulator (iPhone 17 Pro, iOS 26.0) on an Apple
+    M-series Mac; <b>CPU-only ggml driver</b>; Qwen3-0.6B Q4_K_M; inferlets
+    interpreted by wasmtime Pulley. These numbers come from the Mac's CPU via the
+    Simulator and are not predictive of iPhone hardware in either direction; a
+    Metal driver and physical-device measurements are the next milestone.
+  </p>
+
+  <h3>Per-turn cost of a five-turn conversation</h3>
+  <table class="data" id="bench-turns">
+    <tr>
+      <th>Turn</th><th>Utterance</th>
+      <th>KV reused (tokens)</th><th>New prefill (tokens)</th>
+      <th>Generated</th><th>Decode tok/s</th>
+    </tr>
+    <tr><td class="num">1</td><td>“What is one good reason to run a language model on a phone…”</td><td class="num">0</td><td class="num">82</td><td class="num">24</td><td class="num">16.1</td></tr>
+    <tr><td class="num">2</td><td>“Can you say that more simply”</td><td class="num">108</td><td class="num">18</td><td class="num">19</td><td class="num">12.3</td></tr>
+    <tr><td class="num">3</td><td>“What is the hardest part of doing that”</td><td class="num">147</td><td class="num">20</td><td class="num">13</td><td class="num">8.6</td></tr>
+    <tr><td class="num">4</td><td>(first question again)</td><td class="num">182</td><td class="num">30</td><td class="num">19</td><td class="num">5.9</td></tr>
+    <tr><td class="num">5</td><td>(second question again)</td><td class="num">233</td><td class="num">18</td><td class="num">20</td><td class="num">6.1</td></tr>
+  </table>
+
+  <figure id="prefill-chart">
+<svg viewBox="0 0 760 276" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Prefill versus reused tokens per turn" style="font-family:'Times New Roman',Times,serif;max-width:100%">
+<text x="80" y="47.0" text-anchor="end" font-size="13">turn 1</text>
+<rect x="90.0" y="26" width="176.4" height="34" fill="#00356b"/>
+<text x="274.4" y="47.0" font-size="12.5" fill="#333">82 new (fresh conversation)</text>
+<text x="80" y="95.0" text-anchor="end" font-size="13">turn 2</text>
+<rect x="90" y="74" width="232.4" height="34" fill="#c9c9c9"/>
+<rect x="322.4" y="74" width="38.7" height="34" fill="#00356b"/>
+<text x="369.1" y="95.0" font-size="12.5" fill="#333">18 new · 108 reused</text>
+<text x="80" y="143.0" text-anchor="end" font-size="13">turn 3</text>
+<rect x="90" y="122" width="316.3" height="34" fill="#c9c9c9"/>
+<rect x="406.3" y="122" width="43.0" height="34" fill="#00356b"/>
+<text x="457.3" y="143.0" font-size="12.5" fill="#333">20 new · 147 reused</text>
+<text x="80" y="191.0" text-anchor="end" font-size="13">turn 4</text>
+<rect x="90" y="170" width="391.6" height="34" fill="#c9c9c9"/>
+<rect x="481.6" y="170" width="64.5" height="34" fill="#00356b"/>
+<text x="554.1" y="191.0" font-size="12.5" fill="#333">30 new · 182 reused</text>
+<text x="80" y="239.0" text-anchor="end" font-size="13">turn 5</text>
+<rect x="90" y="218" width="501.3" height="34" fill="#c9c9c9"/>
+<rect x="591.3" y="218" width="38.7" height="34" fill="#00356b"/>
+<text x="638.0" y="239.0" font-size="12.5" fill="#333">18 new · 233 reused</text>
+</svg>
+    <figcaption>
+      New prefill tokens per turn (blue) versus conversation tokens reused from
+      the engine snapshot (gray). Without per-turn KV persistence, the blue bar
+      would be the <i>sum</i> of both every turn.
+    </figcaption>
+  </figure>
+
+  <h3>Boot and load</h3>
+  <table class="data">
+    <tr><th>Metric</th><th>Value</th><th>Notes</th></tr>
+    <tr><td>Model load (warm OS cache)</td><td class="num">1.6&nbsp;s</td>
+        <td>relaunch; 397&nbsp;MB GGUF already in page cache</td></tr>
+    <tr><td>Relaunch &rarr; interactive ready</td><td class="num">≈ 11–13&nbsp;s</td>
+        <td>includes engine boot and a 1-token warm-up generation; screenshot-polled, ±≈1&nbsp;s</td></tr>
+    <tr><td>Decode rate, turn&nbsp;1 (fresh conversation)</td><td class="num">14.1–16.1&nbsp;tok/s</td>
+        <td>range over three independent fresh conversations</td></tr>
+  </table>
+
+  <p class="caveat">
+    <b>Reading these honestly:</b> decode rate varies run-to-run across sessions (we have observed
+    4&ndash;16&nbsp;tok/s on the same build; host load and thermal state are the
+    likely culprits);
+    the table reports this sweep's measurements and the observed range where we
+    have one. Prefill/reuse token counts are exact and deterministic — they are
+    the engine's own accounting, and they are the point: <b>follow-up prefill
+    stays flat as the conversation grows.</b>
+  </p>
+</section>
+
+<hr>
+
+<section id="architecture">
+  <h2>Architecture</h2>
+  <p>
+    The app is three layers behind three protocols, and the Pie-facing layer is
+    the only one that knows Pie exists. Everything version-specific — engine
+    config, model path, inferlet id — lives in one file
+    (<code>PieRuntimeConfig.swift</code>), so upgrading to a new Pie release is
+    a diff to that file plus a rebuild of the C shim.
+  </p>
+  <figure>
+<svg viewBox="0 0 860 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Architecture of one spoken turn in Pie Voice">
+  <style>
+    .box  { fill: #fff; stroke: #444; stroke-width: 1.2; }
+    .hdr  { fill: #00356b; }
+    .pie  { fill: #ffffff; stroke: #00356b; stroke-width: 1.4; }
+    .seam { fill: none; stroke: #00356b; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    text  { font-family: "Times New Roman", Times, serif; fill: #000; }
+    .h    { fill: #fff; font-weight: bold; font-size: 13px; }
+    .t    { font-size: 12.5px; }
+    .s    { font-size: 11px; fill: #444; }
+    .b    { font-size: 11.5px; fill: #00356b; font-weight: bold; }
+    .arr  { stroke: #444; stroke-width: 1.2; fill: none; marker-end: url(#m); }
+    .arrb { stroke: #00356b; stroke-width: 1.4; fill: none; marker-end: url(#mb); }
+  </style>
+  <defs>
+    <marker id="m" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#444"/>
+    </marker>
+    <marker id="mb" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#00356b"/>
+    </marker>
+  </defs>
+
+  <!-- ── Input column ── -->
+  <rect class="box" x="12" y="30" width="150" height="46"/>
+  <rect class="hdr" x="12" y="30" width="150" height="20"/>
+  <text class="h" x="87" y="44" text-anchor="middle">Microphone</text>
+  <text class="t" x="87" y="66" text-anchor="middle">the user speaks</text>
+
+  <rect class="box" x="12" y="106" width="150" height="58"/>
+  <rect class="hdr" x="12" y="106" width="150" height="20"/>
+  <text class="h" x="87" y="120" text-anchor="middle">SFSpeechRecognizer</text>
+  <text class="t" x="87" y="140" text-anchor="middle">on-device transcription</text>
+  <text class="s" x="87" y="155" text-anchor="middle">AudioKit · VoiceInput</text>
+
+  <path class="arr" d="M87,76 L87,106"/>
+
+  <!-- ── Controller ── -->
+  <rect class="box" x="12" y="204" width="150" height="72"/>
+  <rect class="hdr" x="12" y="204" width="150" height="20"/>
+  <text class="h" x="87" y="218" text-anchor="middle">ConversationController</text>
+  <text class="t" x="87" y="238" text-anchor="middle">turn-taking only</text>
+  <text class="s" x="87" y="253" text-anchor="middle">sees three protocols,</text>
+  <text class="s" x="87" y="266" text-anchor="middle">never Pie, mics, or TTS</text>
+
+  <path class="arr" d="M87,164 L87,204"/>
+
+  <!-- ── Output column ── -->
+  <rect class="box" x="12" y="316" width="150" height="58"/>
+  <rect class="hdr" x="12" y="316" width="150" height="20"/>
+  <text class="h" x="87" y="330" text-anchor="middle">AVSpeechSynthesizer</text>
+  <text class="t" x="87" y="350" text-anchor="middle">sentences spoken as</text>
+  <text class="s" x="87" y="365" text-anchor="middle">they complete · VoiceOutput</text>
+
+  <path class="arr" d="M87,276 L87,316"/>
+
+  <rect class="box" x="12" y="404" width="150" height="40"/>
+  <rect class="hdr" x="12" y="404" width="150" height="20"/>
+  <text class="h" x="87" y="418" text-anchor="middle">Speaker</text>
+  <text class="t" x="87" y="437" text-anchor="middle">the reply, out loud</text>
+  <path class="arr" d="M87,374 L87,404"/>
+
+  <!-- ── Shim bridge ── -->
+  <rect class="box" x="232" y="204" width="150" height="72"/>
+  <rect class="hdr" x="232" y="204" width="150" height="20"/>
+  <text class="h" x="307" y="218" text-anchor="middle">PieEngine (Swift)</text>
+  <text class="t" x="307" y="238" text-anchor="middle">C-ABI shim, one call</text>
+  <text class="s" x="307" y="253" text-anchor="middle">per turn; streams deltas</text>
+  <text class="s" x="307" y="266" text-anchor="middle">back via callback</text>
+
+  <path class="arrb" d="M162,240 L232,240"/>
+  <path class="arr" d="M232,258 C200,258 200,300 162,300 L162,300"
+        transform="translate(0,14)"/>
+
+  <!-- upgrade seam -->
+  <rect class="seam" x="224" y="192" width="166" height="120"/>
+  <text class="b" x="307" y="188" text-anchor="middle">PieRuntimeConfig.swift — the upgrade seam</text>
+
+  <!-- ── Pie engine ── -->
+  <rect class="pie" x="452" y="60" width="396" height="384"/>
+  <rect class="hdr" x="452" y="60" width="396" height="22"/>
+  <text class="h" x="650" y="76" text-anchor="middle">Pie engine — in the app process</text>
+
+  <rect class="box" x="476" y="104" width="160" height="62"/>
+  <rect class="hdr" x="476" y="104" width="160" height="20"/>
+  <text class="h" x="556" y="118" text-anchor="middle">wasmtime Pulley</text>
+  <text class="t" x="556" y="138" text-anchor="middle">interprets wasm —</text>
+  <text class="s" x="556" y="153" text-anchor="middle">pure interpreter, no codegen</text>
+
+  <rect class="box" x="664" y="104" width="160" height="62"/>
+  <rect class="hdr" x="664" y="104" width="160" height="20"/>
+  <text class="h" x="744" y="118" text-anchor="middle">voice-chat inferlet</text>
+  <text class="t" x="744" y="138" text-anchor="middle">owns the conversation</text>
+  <text class="s" x="744" y="153" text-anchor="middle">≈350 lines of Rust → wasm</text>
+
+  <rect class="box" x="476" y="204" width="160" height="66"/>
+  <rect class="hdr" x="476" y="204" width="160" height="20"/>
+  <text class="h" x="556" y="218" text-anchor="middle">KV snapshot</text>
+  <text class="t" x="556" y="238" text-anchor="middle">"voice-session" — the</text>
+  <text class="s" x="556" y="253" text-anchor="middle">conversation, resident in</text>
+  <text class="s" x="556" y="265" text-anchor="middle">the engine between turns</text>
+
+  <rect class="box" x="664" y="204" width="160" height="66"/>
+  <rect class="hdr" x="664" y="204" width="160" height="20"/>
+  <text class="h" x="744" y="218" text-anchor="middle">ggml driver (CPU)</text>
+  <text class="t" x="744" y="238" text-anchor="middle">Qwen3-0.6B Q4_K_M</text>
+  <text class="s" x="744" y="253" text-anchor="middle">the FLOPs live here;</text>
+  <text class="s" x="744" y="265" text-anchor="middle">Metal is the next milestone</text>
+
+  <path class="arr" d="M636,135 L664,135"/>
+  <path class="arrb" d="M744,166 L744,204"/>
+  <path class="arrb" d="M636,237 L664,237"/>
+
+  <!-- turn loop -->
+  <rect class="box" x="476" y="304" width="348" height="116"/>
+  <rect class="hdr" x="476" y="304" width="348" height="20"/>
+  <text class="h" x="650" y="318" text-anchor="middle">one turn, as the inferlet runs it</text>
+  <text class="t" x="490" y="342">1&#8194;take / open the snapshot — the history is already prefilled</text>
+  <text class="t" x="490" y="360">2&#8194;append only the new utterance; close the reasoning block</text>
+  <text class="t" x="490" y="378">3&#8194;stream generation; speakable text only reaches stdout</text>
+  <text class="t" x="490" y="396">4&#8194;seal the assistant turn; flush; re-save the snapshot</text>
+
+  <path class="arrb" d="M382,240 L452,240"/>
+</svg>
+
+    <figcaption>
+      One spoken turn. The <code>voice-chat</code> inferlet owns the
+      conversation: it resumes the KV snapshot, prefills only the new
+      utterance, streams speakable text (reasoning blocks stripped), seals the
+      turn, and re-saves the snapshot.
+    </figcaption>
+  </figure>
+  <p>
+    The turn loop is the Pie thesis in miniature: <i>which</i> tokens to
+    prefill, <i>where</i> the conversation state lives, and <i>what</i> is
+    allowed to reach the speaker are all decisions made by a replaceable
+    user-level program — not by the engine.
+  </p>
+</section>
+
+<hr>
+
+<section id="links">
+  <h2>Links</h2>
+  <p>
+    Code: <a href="https://github.com/aarushkandukoori/pie/tree/ios-voice">aarushkandukoori/pie @ ios-voice</a>
+    (app in <code>ios/voice-app</code>, inferlet in <code>inferlets/voice-chat</code>)<br>
+    Upstream: <a href="https://github.com/pie-project/pie">pie-project/pie</a> &middot;
+    <a href="https://github.com/pie-project/pie/discussions/526">mobile RFC &amp; progress thread</a><br>
+    Paper: <a href="https://arxiv.org/abs/2510.24051">Pie: A Programmable Serving System for Emerging LLM Applications</a> (SOSP&nbsp;'25)
+  </p>
+  <footer>
+    Aarush Kandukoori — Computer Science, Carnegie Mellon University.
+    Research internship with Prof.&nbsp;Lin Zhong's group at Yale.
+    <a href="mailto:akanduko@andrew.cmu.edu">akanduko@andrew.cmu.edu</a>
+  </footer>
+</section>
+
+</main>
+
+<script>window.SCRUB_FRAMES=79;</script>
+<script src="main.js"></script>
+<script type="module" src="demo.js"></script>
+</body>
+</html>
