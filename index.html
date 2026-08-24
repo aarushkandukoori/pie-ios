@@ -179,22 +179,32 @@
 <section id="iphone">
   <h2>On Your iPhone</h2>
   <p>
-    Not on the App Store yet — today the app runs in the iOS Simulator, built
-    from source. Nothing about the design blocks distribution: inferlets run
-    under a pure interpreter (no JIT), and the model ships inside the app
-    bundle. The path there, in order:
+    Two ways to run it on a physical iPhone (iOS 17+) today. Not on the App
+    Store yet — a TestFlight beta will be linked here once the Metal driver
+    and device validation land.
   </p>
   <p>
-    <b>1.</b> Metal driver, so a phone-class GPU does the FLOPs &middot;
-    <b>2.</b> validation on physical devices &middot;
-    <b>3.</b> a <b>TestFlight beta — it will be linked here the day it
-    exists</b>, and the App Store after that.
+    <b>Build with Xcode (recommended).</b> Clone
+    <a href="https://github.com/aarushkandukoori/pie/tree/ios-voice">the
+    ios-voice branch</a>, follow
+    <a href="https://github.com/aarushkandukoori/pie/blob/ios-voice/ios/PieVoice/README.md"><code>ios/PieVoice/README.md</code></a>,
+    open the generated Xcode project, pick your team (a free Apple&nbsp;ID
+    works), and press Run with your iPhone plugged in.
   </p>
   <p>
-    Until then, it builds from source in about five minutes:
-    <a href="https://github.com/aarushkandukoori/pie/tree/ios-voice/ios/voice-app">ios/voice-app
-    on the ios-voice branch</a> has the instructions
-    (<code>build-app.sh</code> assembles the Simulator app).
+    <b>Sideload the prebuilt build.</b> An unsigned
+    <a href="https://github.com/aarushkandukoori/pie-ios/releases/tag/v0.2.0">PieVoice.ipa
+    (405&nbsp;MB, release v0.2.0)</a> installs via
+    <a href="https://altstore.io">AltStore</a> or
+    <a href="https://sideloadly.io">Sideloadly</a>, which re-sign it with your
+    own Apple&nbsp;ID. Free accounts refresh every 7 days.
+  </p>
+  <p class="caveat">
+    <b>Honesty note:</b> this device build compiles and links for arm64 but
+    has <b>not yet been validated on physical hardware</b> — the published
+    benchmarks are from the Simulator build. On a real iPhone, on-device
+    speech recognition should engage (the Simulator lacks the assets), and
+    CPU decode speed will differ in either direction. First reports welcome.
   </p>
 </section>
 
