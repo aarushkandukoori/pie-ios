@@ -13,7 +13,6 @@
   <div class="inner">
     <a href="#overview" class="current">Overview</a>
     <a href="#app">The App</a>
-    <a href="#demo">Try It</a>
     <a href="#iphone">iPhone</a>
     <a href="#benchmarks">Benchmarks</a>
     <a href="#architecture">Architecture</a>
@@ -74,9 +73,8 @@
     KV state lives inside the engine under a named snapshot, carried across turns
     by the <code>voice-chat</code> inferlet. A follow-up question prefills only
     the new utterance — not the whole transcript. The numbers are in the
-    <a href="#benchmarks">benchmarks</a>; you can watch the cost <i>not</i> being
-    paid in the <a href="#app">app walkthrough</a> below, and feel the baseline
-    cost it removes in the <a href="#demo">browser demo</a>.
+    <a href="#benchmarks">benchmarks</a>, and you can watch the cost <i>not</i>
+    being paid in the <a href="#app">app walkthrough</a> below.
   </p>
 </section>
 
@@ -126,53 +124,6 @@
     </div>
   </div>
 </div>
-
-<hr>
-
-<section id="demo">
-  <h2>Try It in Your Browser — WebLLM, not Pie</h2>
-  <p>
-    <b>The inference engine in this demo is
-    <a href="https://github.com/mlc-ai/web-llm">WebLLM</a> (MLC), not Pie</b> —
-    the Pie engine runs only in the iOS app above. This is a browser
-    recreation of Pie Voice: the same base model
-    (Qwen3-0.6B, in WebLLM's q4f16 quantization rather than the app's Q4_K_M
-    GGUF), the same conversation design, running entirely in your browser on
-    WebGPU.
-    Nothing you <i>type</i> leaves this page — the model runs in this tab, and the
-    only network traffic is the one-time model download. Voice input uses the
-    browser's Web Speech API, which some browsers (Chrome, Edge) process on the
-    browser vendor's servers — type instead if you want strictly local input.
-  </p>
-  <p class="caveat">
-    <b>What this demo deliberately shows:</b> the browser engine has no
-    per-conversation KV snapshots, so every follow-up re-sends and re-prefills
-    the whole history — watch the <i>prefill</i> number in the stats chip grow
-    each turn. That growing number is exactly the cost the Pie engine removes in
-    the native app, where follow-up prefill stays flat.
-  </p>
-  <div id="demo-box">
-    <div id="demo-head">
-      <span><b>Pie Voice</b> — browser recreation &middot; engine: WebLLM, <i>not</i> Pie</span>
-      <span id="demo-engine">Qwen3-0.6B &middot; WebLLM &middot; WebGPU</span>
-    </div>
-    <div id="demo-transcript"></div>
-    <div id="demo-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div></div></div>
-    <div id="demo-status" aria-live="polite">Model is downloaded once (about 340&nbsp;MB, measured) and cached by your browser.</div>
-    <div id="demo-controls">
-      <button id="demo-load">Load model (~340 MB)</button>
-      <button id="demo-mic" class="ghost" disabled>&#127908; Speak</button>
-      <input type="text" id="demo-text" placeholder="or type a message…" aria-label="Type a message to the model" disabled>
-      <button id="demo-send" disabled>Send</button>
-      <button id="demo-reset" class="ghost" disabled>Start over</button>
-    </div>
-  </div>
-  <p style="font-size:10.5pt;color:#444">
-    Requires WebGPU (recent Chrome, Edge, or Safari). Voice input uses the Web
-    Speech API where available; typing always works. Replies are spoken with
-    your browser's speech synthesis — same interaction contract as the app.
-  </p>
-</section>
 
 <hr>
 
@@ -463,6 +414,5 @@
 
 <script>window.SCRUB_FRAMES=79;</script>
 <script src="main.js"></script>
-<script type="module" src="demo.js"></script>
 </body>
 </html>
