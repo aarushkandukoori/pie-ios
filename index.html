@@ -14,6 +14,7 @@
     <a href="#overview" class="current">Overview</a>
     <a href="#app">The App</a>
     <a href="#demo">Try It</a>
+    <a href="#iphone">iPhone</a>
     <a href="#benchmarks">Benchmarks</a>
     <a href="#architecture">Architecture</a>
     <a href="#links">Links</a>
@@ -129,12 +130,15 @@
 <hr>
 
 <section id="demo">
-  <h2>Try It — In Your Browser</h2>
+  <h2>Try It in Your Browser — WebLLM, not Pie</h2>
   <p>
-    This is a <b>browser recreation</b> of Pie Voice: the same base model
+    <b>The inference engine in this demo is
+    <a href="https://github.com/mlc-ai/web-llm">WebLLM</a> (MLC), not Pie</b> —
+    the Pie engine runs only in the iOS app above. This is a browser
+    recreation of Pie Voice: the same base model
     (Qwen3-0.6B, in WebLLM's q4f16 quantization rather than the app's Q4_K_M
-    GGUF), the same conversation design, running entirely in your browser
-    via <a href="https://github.com/mlc-ai/web-llm">WebLLM</a> and WebGPU.
+    GGUF), the same conversation design, running entirely in your browser on
+    WebGPU.
     Nothing you <i>type</i> leaves this page — the model runs in this tab, and the
     only network traffic is the one-time model download. Voice input uses the
     browser's Web Speech API, which some browsers (Chrome, Edge) process on the
@@ -149,7 +153,7 @@
   </p>
   <div id="demo-box">
     <div id="demo-head">
-      <span><b>Pie Voice</b> — browser recreation</span>
+      <span><b>Pie Voice</b> — browser recreation &middot; engine: WebLLM, <i>not</i> Pie</span>
       <span id="demo-engine">Qwen3-0.6B &middot; WebLLM &middot; WebGPU</span>
     </div>
     <div id="demo-transcript"></div>
@@ -167,6 +171,30 @@
     Requires WebGPU (recent Chrome, Edge, or Safari). Voice input uses the Web
     Speech API where available; typing always works. Replies are spoken with
     your browser's speech synthesis — same interaction contract as the app.
+  </p>
+</section>
+
+<hr>
+
+<section id="iphone">
+  <h2>On Your iPhone</h2>
+  <p>
+    Not on the App Store yet — today the app runs in the iOS Simulator, built
+    from source. Nothing about the design blocks distribution: inferlets run
+    under a pure interpreter (no JIT), and the model ships inside the app
+    bundle. The path there, in order:
+  </p>
+  <p>
+    <b>1.</b> Metal driver, so a phone-class GPU does the FLOPs &middot;
+    <b>2.</b> validation on physical devices &middot;
+    <b>3.</b> a <b>TestFlight beta — it will be linked here the day it
+    exists</b>, and the App Store after that.
+  </p>
+  <p>
+    Until then, it builds from source in about five minutes:
+    <a href="https://github.com/aarushkandukoori/pie/tree/ios-voice/ios/voice-app">ios/voice-app
+    on the ios-voice branch</a> has the instructions
+    (<code>build-app.sh</code> assembles the Simulator app).
   </p>
 </section>
 
