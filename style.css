@@ -105,6 +105,7 @@ h2 {
   margin: 22pt 0 9pt;
 }
 h3 { font: bold 12.5pt "Times New Roman", Times, serif; margin: 1.2em 0 4pt; }
+h4 { font: bold italic 11.5pt "Times New Roman", Times, serif; margin: 1em 0 4pt; }
 
 hr {
   border: none;

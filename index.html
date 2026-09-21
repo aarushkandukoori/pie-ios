@@ -58,7 +58,9 @@
   </p>
   <p>
     The result so far is <b>Pie Voice</b>, an iOS app you hold a spoken
-    conversation with. Speech is transcribed by the OS recognizer (on-device on real hardware —
+    conversation with. <b>As of September 21, 2026 it runs on a physical
+    iPhone 16 Pro</b>; the measured numbers are in the
+    <a href="#benchmarks">benchmarks</a>. Speech is transcribed by the OS recognizer (on-device on real hardware —
     the app's header badge reports the actual mode), answered by
     Qwen3-0.6B running through the Pie engine <i>embedded inside the app</i>, and
     spoken back. iOS forbids JIT compilation, so inferlets execute under
@@ -130,32 +132,43 @@
 <section id="iphone">
   <h2>On Your iPhone</h2>
   <p>
-    Two ways to run it on a physical iPhone (iOS 17+) today. Not on the App
-    Store yet — a TestFlight beta will be linked here once the Metal driver
-    and device validation land.
+    <b>Runs on hardware</b> as of September 21, 2026: on an iPhone 16 Pro
+    (iOS 26.1) the embedded engine boots, loads Qwen3-0.6B, and answers a
+    scripted three-turn conversation on the device (numbers in the
+    <a href="#benchmarks">benchmarks</a>); the spoken path runs on the phone
+    the same way it does in the walkthrough above, with the header badge
+    reporting whether recognition is on-device. Two ways to run it on a
+    physical iPhone (iOS 17+) today. Not on the App Store yet; a TestFlight
+    beta needs an Apple Developer Program membership and will be linked here
+    once one exists.
   </p>
   <p>
-    <b>Build with Xcode (recommended).</b> Clone
+    <b>Build from source (recommended).</b> Clone
     <a href="https://github.com/aarushkandukoori/pie/tree/ios-voice">the
-    ios-voice branch</a>, follow
-    <a href="https://github.com/aarushkandukoori/pie/blob/ios-voice/ios/PieVoice/README.md"><code>ios/PieVoice/README.md</code></a>,
-    open the generated Xcode project, pick your team (a free Apple&nbsp;ID
-    works), and press Run with your iPhone plugged in.
+    ios-voice branch</a> and, with your iPhone plugged in and unlocked, run
+    <code>bash ios/PieVoice/deploy-device.sh</code> from the repository root.
+    It builds the engine and the inferlet, signs with your team (a free
+    Apple&nbsp;ID works), installs, launches, and reads the phone's own log back
+    to confirm the engine booted. Details in
+    <a href="https://github.com/aarushkandukoori/pie/blob/ios-voice/ios/PieVoice/README.md"><code>ios/PieVoice/README.md</code></a>.
   </p>
   <p>
     <b>Sideload the prebuilt build.</b> An unsigned
-    <a href="https://github.com/aarushkandukoori/pie-ios/releases/tag/v0.2.0">PieVoice.ipa
-    (405&nbsp;MB, release v0.2.0)</a> installs via
+    <a href="https://github.com/aarushkandukoori/pie-ios/releases/tag/v0.3.0">PieVoice.ipa
+    (405&nbsp;MB, release v0.3.0)</a> installs via
     <a href="https://altstore.io">AltStore</a> or
     <a href="https://sideloadly.io">Sideloadly</a>, which re-sign it with your
     own Apple&nbsp;ID. Free accounts refresh every 7 days.
   </p>
   <p class="caveat">
-    <b>Honesty note:</b> this device build compiles and links for arm64 but
-    has <b>not yet been validated on physical hardware</b> — the published
-    benchmarks are from the Simulator build. On a real iPhone, on-device
-    speech recognition should engage (the Simulator lacks the assets), and
-    CPU decode speed will differ in either direction. First reports welcome.
+    <b>What the phone taught us:</b> the same engine defaults that ran fine
+    in the Simulator hit two fatal limits on real hardware, one after the
+    other: wasmtime's pool reservation aborted the process during engine boot
+    (first seen August 26), and once that was sized down, ggml's scheduler
+    context aborted the first forward pass (September 21). The reason is in the
+    <a href="#benchmarks">benchmarks</a>: the kernel grants an iPhone process
+    only about 5.2&nbsp;GiB in a single reservation, and both defaults were
+    sized for a datacenter.
   </p>
 </section>
 
@@ -163,19 +176,75 @@
 
 <section id="benchmarks">
   <h2>Benchmarks</h2>
+
+  <h3>On a real iPhone 16 Pro</h3>
   <p>
-    Measured on the app itself — the numbers below are read from the app's
+    Measured on the phone on 2026-09-21: iPhone 16 Pro (iOS 26.1, 8&nbsp;GB
+    RAM, reported as 7.5&nbsp;GiB), <b>CPU-only ggml driver</b> pinned to 4
+    threads, Qwen3-0.6B Q4_K_M, inferlets interpreted by wasmtime Pulley. The
+    app's benchmark mode ran a scripted three-turn conversation (the same three
+    opening utterances as the Simulator sweep below, typed with punctuation,
+    hence the ±1–2 token prefill differences), a single run, relaunched
+    shortly after a previous launch had loaded the same file; numbers are as
+    the app reported them
+    (<a href="https://github.com/aarushkandukoori/pie/blob/ios-voice/ios/PieVoice/results/dev-20260921-iphone16pro-qwen3-0.6b.jsonl">raw records</a>).
+    On turns 2 and 3 the inferlet's <code>take</code> of the KV snapshot was
+    refused (the CPU driver reports 0 spare pages, an open page-accounting
+    issue) and it resumed via <code>open</code> instead; the reused-token counts
+    are the engine's own after that fallback.
+  </p>
+  <table class="data">
+    <tr>
+      <th>Turn</th><th>Utterance</th>
+      <th>KV reused (tokens)</th><th>New prefill (tokens)</th>
+      <th>Generated</th><th>Time to first token</th><th>Decode tok/s</th>
+    </tr>
+    <tr><td class="num">1</td><td>“What is one good reason to run a language model on a phone…”</td><td class="num">0</td><td class="num">83</td><td class="num">22</td><td class="num">0.57&nbsp;s</td><td class="num">62.6</td></tr>
+    <tr><td class="num">2</td><td>“Can you say that more simply?”</td><td class="num">107</td><td class="num">19</td><td class="num">21</td><td class="num">0.17&nbsp;s</td><td class="num">60.3</td></tr>
+    <tr><td class="num">3</td><td>“What is the hardest part of doing that?”</td><td class="num">149</td><td class="num">21</td><td class="num">20</td><td class="num">0.19&nbsp;s</td><td class="num">57.9</td></tr>
+  </table>
+  <table class="data">
+    <tr><th>Metric</th><th>Value</th><th>Notes</th></tr>
+    <tr><td>Engine boot + weight load (relaunch)</td><td class="num">0.97&nbsp;s</td>
+        <td>relaunch shortly after a previous launch had loaded the same 397&nbsp;MB GGUF
+            (cold-launch time not measured); includes a 1-token warm-up generation</td></tr>
+    <tr><td>Whole turn&nbsp;1 (83-token prefill + 22 generated)</td><td class="num">0.92&nbsp;s</td>
+        <td>from request to the inferlet's return</td></tr>
+    <tr><td>Peak physical footprint</td><td class="num">1.0&nbsp;GiB</td>
+        <td>1,029&nbsp;MiB; the largest of phys_footprint sampled after warm-up and after each turn</td></tr>
+    <tr><td>Address-space ceiling</td><td class="num">5.2&nbsp;GiB</td>
+        <td>largest single anonymous mmap the kernel grants, found by bisection at launch (±0.25&nbsp;GiB);
+            this build requests no extended-virtual-addressing entitlement, and the entitled ceiling is not yet measured</td></tr>
+  </table>
+  <p class="caveat">
+    <b>What broke on the phone and not in the Simulator:</b> a macOS process
+    (the Simulator is one) has terabytes of virtual address space, so oversized
+    reservations cost nothing there; an iPhone process is capped at about
+    5.2&nbsp;GiB per reservation, so two engine defaults sized for servers
+    failed outright. wasmtime's pooling allocator asked for about 3.9&nbsp;TiB
+    of address space (1000 slots × 4&nbsp;GiB) and the engine aborted during
+    boot; after that, ggml's backend scheduler asked for about 10.8&nbsp;GiB of
+    split-input context for a 524,288-node graph budget and aborted in the
+    first forward pass. iPhone builds now use a 4 × 128&nbsp;MiB wasm pool and a
+    16,384-node budget. Under the same 5.2&nbsp;GiB ceiling the 1.7B rung is
+    expected to fit; 4B and 8B are not expected to map without the
+    entitlement, because the driver keeps the GGUF mmap and also copies the
+    weights into buffers. Those rungs are not yet measured on the phone.
+  </p>
+
+  <h3>Earlier: Simulator sweep on a Mac (2026-08-23)</h3>
+  <p>
+    Kept for the five-turn accounting. Numbers were read from the app's
     per-turn stats chips during a five-turn spoken conversation, recorded in one
     take on 2026-08-23. Utterances came from the app's bundled sample
     recordings (synthesised speech played into the same recognition path as the
     microphone), so the run is repeatable. Environment: iOS Simulator (iPhone 17 Pro, iOS 26.0) on an Apple
     M-series Mac; <b>CPU-only ggml driver</b>; Qwen3-0.6B Q4_K_M; inferlets
-    interpreted by wasmtime Pulley. These numbers come from the Mac's CPU via the
-    Simulator and are not predictive of iPhone hardware in either direction; a
-    Metal driver and physical-device measurements are the next milestone.
+    interpreted by wasmtime Pulley. These decode rates come from the Mac's CPU
+    via the Simulator; the phone numbers above are the ones to quote.
   </p>
 
-  <h3>Per-turn cost of a five-turn conversation</h3>
+  <h4>Per-turn cost of a five-turn conversation</h4>
   <table class="data" id="bench-turns">
     <tr>
       <th>Turn</th><th>Utterance</th>
@@ -218,7 +287,7 @@
     </figcaption>
   </figure>
 
-  <h3>Boot and load</h3>
+  <h4>Boot and load (Simulator)</h4>
   <table class="data">
     <tr><th>Metric</th><th>Value</th><th>Notes</th></tr>
     <tr><td>Model load (warm OS cache)</td><td class="num">1.6&nbsp;s</td>
@@ -398,6 +467,8 @@
   <h2>Links</h2>
   <p>
     Code: <a href="https://github.com/aarushkandukoori/pie/tree/ios-voice">aarushkandukoori/pie @ ios-voice</a>
+    &middot; <a href="https://github.com/aarushkandukoori/pie-ios/releases/tag/v0.3.0">release v0.3.0 (unsigned .ipa)</a>
+    &middot; <a href="https://github.com/aarushkandukoori/pie/blob/ios-voice/ios/PieVoice/results/dev-20260921-iphone16pro-qwen3-0.6b.jsonl">iPhone benchmark records</a><br>
     (app in <code>ios/voice-app</code>, inferlet in <code>inferlets/voice-chat</code>)<br>
     Upstream: <a href="https://github.com/pie-project/pie">pie-project/pie</a> &middot;
     <a href="https://github.com/pie-project/pie/discussions/526">mobile RFC &amp; progress thread</a><br>
